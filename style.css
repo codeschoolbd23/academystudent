@@ -186,3 +186,7 @@ svg.ch.donut{max-width:170px;flex:none}svg.ch.donut .big{fill:var(--ink);font-si
 
 .item .no.pdf{font-size:.78rem;letter-spacing:.3px;color:#d64545;background:rgba(214,69,69,.12)}
 [hidden]{display:none!important}
+
+.pdfbox{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--shadow)}
+.pdfbox iframe{display:block;width:100%;height:calc(100vh - 230px);height:calc(100dvh - 230px);min-height:480px;border:0}
+@media(max-width:640px){.pdfbox{margin:0 -6px;border-radius:12px}.pdfbox iframe{height:calc(100dvh - 270px);min-height:420px}}

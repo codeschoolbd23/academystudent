@@ -55,7 +55,7 @@ async function render(){
   if(session){const r=await api('GET','/api/quizzes');if(r.status===401){clearSession();location.hash='#/login';return}quizzes=r.data||[]
     const rs=await api('GET','/api/resources');resources=rs.ok?rs.data:[]}
   nav();
-  const pages={result:pReview,profile:pProfile,results:pResults,login:pLogin,home:pHome,s:pSubject,quiz:pQuiz,edit:pEdit,new:pNew};
+  const pages={pdf:pReader,result:pReview,profile:pProfile,results:pResults,login:pLogin,home:pHome,s:pSubject,quiz:pQuiz,edit:pEdit,new:pNew};
   (pages[page]||pHome)(arg);
   window.scrollTo(0,0);
 }
@@ -221,11 +221,28 @@ function pSubject(k){
   document.querySelectorAll('[data-rd]').forEach(b=>b.onclick=async()=>{if(confirm('এই পিডিএফ লিংক ডিলিট করবেন?')){await api('DELETE','/api/resources/'+b.dataset.rd);render()}});
 }
 const hostOf=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return ''}};
+function embedInfo(url){ // Google Drive লিংক হলে ভেতরে দেখানোর উপযোগী /preview লিংকে বদলানো হয়
+  const m=url.match(/drive\.google\.com\/file\/d\/([\w-]+)/)||url.match(/drive\.google\.com\/(?:open|uc)\?(?:[^#]*&)?id=([\w-]+)/);
+  if(m)return{drive:true,primary:'https://drive.google.com/file/d/'+m[1]+'/preview'};
+  return{drive:false,primary:url,alt:'https://docs.google.com/gview?embedded=1&url='+encodeURIComponent(url)};
+}
+function pReader(id){ // পিডিএফ অ্যাপের ভেতরেই দেখানো
+  const r=resources.find(x=>x.id===id&&/^https?:\/\//i.test(x.url));
+  if(!r){location.hash='#/home';return}
+  const e=embedInfo(r.url),mobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  let mode=(!e.drive&&mobile)?'alt':'primary';
+  $('#app').innerHTML=`<div class="head ${r.subject}"><div class="hl"><div class="badge sm">PDF</div><div><h1 style="font-size:1.35rem">${esc(r.title)}</h1><span class="mute">${SUBJ[r.subject]||''}</span></div></div>
+   <div class="row"><a class="btn" href="#/s/${r.subject}">← ফিরে যান</a>${e.drive?'':'<button class="btn" id="vw">ভিউয়ার বদলান</button>'}
+   <a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">নতুন ট্যাবে খুলুন ↗</a></div></div>
+   <div class="pdfbox"><iframe id="pf" title="${esc(r.title)}" src="${esc(mode==='alt'?e.alt:e.primary)}" referrerpolicy="no-referrer" allow="fullscreen"></iframe></div>
+   <p class="mute" style="font-size:.88rem;margin-top:10px">পিডিএফ না দেখালে ${e.drive?'':'“ভিউয়ার বদলান” বা '}“নতুন ট্যাবে খুলুন” চাপুন।</p>`;
+  if($('#vw'))$('#vw').onclick=()=>{mode=mode==='alt'?'primary':'alt';$('#pf').src=mode==='alt'?e.alt:e.primary};
+}
 function matSection(k){ // বিষয়ের পিডিএফ / স্টাডি ম্যাটেরিয়াল তালিকা
   const list=resources.filter(r=>r.subject===k&&/^https?:\/\//i.test(r.url));
   return `<div class="sec">পিডিএফ / স্টাডি ম্যাটেরিয়াল</div><div class="list ${k}" style="margin-top:12px">`+
    (list.length?list.map(r=>`<div class="card item"><div class="ti"><span class="no pdf">PDF</span><div><b>${esc(r.title)}</b><div class="mute" style="font-size:.85rem;word-break:break-all">${esc(hostOf(r.url))}</div></div></div>
-    <div class="row"><a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">খুলুন</a>
+    <div class="row"><a class="btn pri" href="#/pdf/${r.id}">পড়ুন</a><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="নতুন ট্যাবে খুলুন" aria-label="নতুন ট্যাবে খুলুন">↗</a>
     ${isAdmin()?`<button class="btn" data-re="${r.id}">এডিট</button><button class="btn del" data-rd="${r.id}">ডিলিট</button>`:''}</div></div>`).join(''):
     `<div class="card mute">এখনো কোনো পিডিএফ যোগ করা হয়নি।</div>`)+`</div>`+
    (isAdmin()?`<div class="card ${k}" style="margin-top:14px"><h2 id="rft">নতুন পিডিএফ লিংক যোগ করুন</h2>
