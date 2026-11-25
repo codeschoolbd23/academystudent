@@ -1,0 +1,5 @@
+portal.db 
+portal.db-journal
+portal.db-shm
+portal.db-wal
+data.json
