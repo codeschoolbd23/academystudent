@@ -168,12 +168,11 @@ async function render() {
 }
 function pLogin() {
   $("#app").innerHTML =
-    `<div class="card login"><div class="mark big"></div>একাডেমিক-সমাধান</div><h1>লগইন</h1><p class="mute">কুইজ দিতে অ্যাকাউন্টে ঢুকুন।</p>
+    `<div class="card login"><div class="mark big">একাডেমিক-সমাধান</div><h1>লগইন</h1><p class="mute">কুইজ দিতে অ্যাকাউন্টে ঢুকুন।</p>
   <label for="u">ইউজারনেম</label><input id="u" autocomplete="username">
   <label for="p">পাসওয়ার্ড</label><input id="p" type="password" autocomplete="current-password">
   <p class="msg" id="m" role="alert"></p>
-  <div class="row"><button class="btn pri" id="li">লগইন করুন</button><button class="btn" id="rg">নতুন অ্যাকাউন্ট খুলুন</button></div>
-  <p class="mute" style="font-size:.85rem">অ্যাডমিন: admin / admin123</p></div>`;
+  <div class="row"><button class="btn pri" id="li">লগইন করুন</button><button class="btn" id="rg">নতুন অ্যাকাউন্ট খুলুন</button></div>`;
   const get = () => ({ u: $("#u").value.trim(), p: $("#p").value });
   const go = async (path) => {
     const { u, p } = get();
