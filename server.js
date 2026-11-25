@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users(u TEXT PRIMARY KEY,salt TEXT NOT NULL,hash TEXT
 CREATE TABLE IF NOT EXISTS quizzes(id TEXT PRIMARY KEY,subject TEXT NOT NULL,title TEXT NOT NULL,questions TEXT NOT NULL,created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS attempts(id INTEGER PRIMARY KEY AUTOINCREMENT,u TEXT NOT NULL,quiz_id TEXT NOT NULL,title TEXT NOT NULL,subject TEXT NOT NULL,score INTEGER NOT NULL,total INTEGER NOT NULL,created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS resources(id TEXT PRIMARY KEY,subject TEXT NOT NULL,title TEXT NOT NULL,url TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS subjects(id TEXT PRIMARY KEY,name TEXT NOT NULL,icon TEXT NOT NULL,c1 TEXT NOT NULL,c2 TEXT NOT NULL,sort INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY,v TEXT);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,u TEXT NOT NULL,role TEXT NOT NULL,created INTEGER NOT NULL);`);
 {const cols=sql.prepare('PRAGMA table_info(users)').all().map(c=>c.name);
@@ -15,7 +16,14 @@ CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,u TEXT NOT NULL,role 
 {const ac=sql.prepare('PRAGMA table_info(attempts)').all().map(c=>c.name);
  if(!ac.includes('answers'))sql.exec("ALTER TABLE attempts ADD COLUMN answers TEXT");
  if(!ac.includes('snapshot'))sql.exec("ALTER TABLE attempts ADD COLUMN snapshot TEXT");}
-const SUBJ=['physics','chemistry','math'];
+const subjectIds=()=>q$('SELECT id FROM subjects').all().map(r=>r.id);
+const HEX=/^#[0-9a-f]{6}$/i;
+function cleanSubject(x){ // বিষয় যাচাই
+  const name=String(x&&x.name||'').trim().slice(0,40);
+  const icon=(String(x&&x.icon||'').trim()||Array.from(name)[0]||'?').slice(0,4);
+  if(!name||!HEX.test(String(x.c1||''))||!HEX.test(String(x.c2||'')))return null;
+  return{name,icon,c1:String(x.c1),c2:String(x.c2)};
+}
 const hash=(p,salt)=>crypto.scryptSync(p,salt,32).toString('hex');
 const mkUser=(u,p,role)=>{const salt=crypto.randomBytes(8).toString('hex');return{u,salt,hash:hash(p,salt),role}};
 const uid=()=>crypto.randomBytes(5).toString('hex');
@@ -27,16 +35,21 @@ const rowQ=r=>r&&{id:r.id,subject:r.subject,title:r.title,questions:JSON.parse(r
 const allQuizzes=()=>q$('SELECT * FROM quizzes ORDER BY created').all().map(rowQ);
 const getQuiz=id=>rowQ(q$('SELECT * FROM quizzes WHERE id=?').get(id));
 q$("INSERT OR IGNORE INTO meta VALUES('created',?)").run(String(Date.now()));
+if(!q$('SELECT COUNT(*) c FROM subjects').get().c)[['physics','পদার্থবিজ্ঞান','F=ma','#2563eb','#6366f1'],['chemistry','রসায়ন','H₂O','#0f9d76','#14b8a6'],['math','গণিত','∑','#8b5cf6','#d946ef']]
+  .forEach((x,i)=>q$('INSERT INTO subjects VALUES(?,?,?,?,?,?)').run(...x,i));
 const SEED=process.env.SEED_FILE||path.join(__dirname,'seed.json');
 function importData(d){ // ব্যাকআপ/seed থেকে ডেটা বসানো (যে অংশ দেওয়া আছে শুধু সেটাই বদলায়)
   if(!d||typeof d!=='object')throw new Error('ফাইলটি সঠিক ব্যাকআপ নয়।');
-  const qs=Array.isArray(d.quizzes)?d.quizzes.map(x=>{const c=clean(x);if(!c)throw new Error('ব্যাকআপে একটি কুইজের তথ্য ভুল।');return{id:String(x.id||uid()),...c}}):null;
-  const rs=Array.isArray(d.resources)?d.resources.map(x=>{const c=cleanRes(x);if(!c)throw new Error('ব্যাকআপে একটি পিডিএফ লিংক ভুল।');return{id:String(x.id||uid()),...c,created:Number(x.created)||Date.now()}}):null;
+  const ss=Array.isArray(d.subjects)?d.subjects.map(x=>{const c=cleanSubject(x);if(!c||!/^[A-Za-z][\w-]{0,30}$/.test(String(x.id||'')))throw new Error('ব্যাকআপে একটি বিষয়ের তথ্য ভুল।');return{id:String(x.id),...c}}):null;
+  const ids=ss?ss.map(x=>x.id):subjectIds();
+  const qs=Array.isArray(d.quizzes)?d.quizzes.map(x=>{const c=clean(x,ids);if(!c)throw new Error('ব্যাকআপে একটি কুইজের তথ্য ভুল।');return{id:String(x.id||uid()),...c}}):null;
+  const rs=Array.isArray(d.resources)?d.resources.map(x=>{const c=cleanRes(x,ids);if(!c)throw new Error('ব্যাকআপে একটি পিডিএফ লিংক ভুল।');return{id:String(x.id||uid()),...c,created:Number(x.created)||Date.now()}}):null;
   const us=Array.isArray(d.users)?d.users.map(x=>{if(!x||!x.u||!x.salt||!x.hash||!['admin','student'].includes(x.role))throw new Error('ব্যাকআপে একটি ইউজারের তথ্য ভুল।');return x}):null;
   if(us&&!us.some(x=>x.role==='admin'))throw new Error('ব্যাকআপে কোনো অ্যাডমিন নেই।');
   const at=Array.isArray(d.attempts)?d.attempts:null;
   sql.exec('BEGIN');
   try{
+    if(ss){sql.exec('DELETE FROM subjects');ss.forEach((x,i)=>q$('INSERT INTO subjects VALUES(?,?,?,?,?,?)').run(x.id,x.name,x.icon,x.c1,x.c2,i))}
     if(qs){sql.exec('DELETE FROM quizzes');qs.forEach(x=>q$('INSERT INTO quizzes VALUES(?,?,?,?,?)').run(x.id,x.subject,x.title,JSON.stringify(x.questions),Date.now()))}
     if(rs){sql.exec('DELETE FROM resources');rs.forEach(x=>q$('INSERT INTO resources VALUES(?,?,?,?,?)').run(x.id,x.subject,x.title,x.url,x.created))}
     if(us){sql.exec('DELETE FROM users');us.forEach(x=>q$('INSERT INTO users(u,salt,hash,role,name,created) VALUES(?,?,?,?,?,?)').run(String(x.u),String(x.salt),String(x.hash),x.role,String(x.name||''),Number(x.created)||0));
@@ -70,15 +83,15 @@ q$('DELETE FROM sessions WHERE created<?').run(Date.now()-SESSION_DAYS*864e5);
 const getSession=t=>t?q$('SELECT s.u,s.role,u.name FROM sessions s JOIN users u ON u.u=s.u WHERE s.token=?').get(t):null;
 const send=(res,code,obj)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(obj))};
 const body=req=>new Promise(r=>{let d='';req.on('data',c=>{d+=c;if(d.length>5e6)req.destroy()});req.on('end',()=>{try{r(JSON.parse(d||'{}'))}catch(e){r({})}})});
-function clean(q){ // কুইজ যাচাই
-  if(!q||typeof q.title!=='string'||!q.title.trim()||!SUBJ.includes(q.subject)||!Array.isArray(q.questions)||!q.questions.length)return null;
+function clean(q,ids=subjectIds()){ // কুইজ যাচাই
+  if(!q||typeof q.title!=='string'||!q.title.trim()||!ids.includes(q.subject)||!Array.isArray(q.questions)||!q.questions.length)return null;
   const qs=q.questions.map(x=>({q:String(x.q||'').trim(),opts:(x.opts||[]).slice(0,4).map(o=>String(o).trim()),a:Number(x.a)}));
   if(qs.some(x=>!x.q||x.opts.length!==4||x.opts.some(o=>!o)||!(x.a>=0&&x.a<4)))return null;
   return{subject:q.subject,title:q.title.trim(),questions:qs};
 }
-function cleanRes(x){ // পিডিএফ লিংক যাচাই (শুধু http/https)
+function cleanRes(x,ids=subjectIds()){ // পিডিএফ লিংক যাচাই (শুধু http/https)
   const title=String(x&&x.title||'').trim().slice(0,120),url=String(x&&x.url||'').trim().slice(0,1000);
-  if(!SUBJ.includes(x&&x.subject)||!title||!/^https?:\/\/[^\s]+$/i.test(url))return null;
+  if(!ids.includes(x&&x.subject)||!title||!/^https?:\/\/[^\s]+$/i.test(url))return null;
   return{subject:x.subject,title,url};
 }
 const hideAns=q=>({...q,questions:q.questions.map(({a,...r})=>r)});
@@ -125,12 +138,13 @@ async function api(req,res,url){
     return send(res,200,{ok:1})}
   if(p==='/api/admin/info'&&m==='GET'){if(me.role!=='admin')return send(res,403,{error:'শুধু অ্যাডমিন এটা করতে পারবেন।'});
     const c=t=>q$('SELECT COUNT(*) c FROM '+t).get().c;
-    return send(res,200,{created:Number(q$("SELECT v FROM meta WHERE k='created'").get().v),quizzes:c('quizzes'),resources:c('resources'),users:c('users'),attempts:c('attempts')})}
+    return send(res,200,{created:Number(q$("SELECT v FROM meta WHERE k='created'").get().v),subjects:c('subjects'),quizzes:c('quizzes'),resources:c('resources'),users:c('users'),attempts:c('attempts')})}
   if(p==='/api/backup'&&m==='GET'){if(me.role!=='admin')return send(res,403,{error:'শুধু অ্যাডমিন এটা করতে পারবেন।'});
-    const out={version:1,exported:new Date().toISOString(),quizzes:allQuizzes(),resources:q$('SELECT id,subject,title,url,created FROM resources ORDER BY created').all()};
+    const out={version:2,exported:new Date().toISOString(),subjects:q$('SELECT id,name,icon,c1,c2 FROM subjects ORDER BY sort').all(),quizzes:allQuizzes(),resources:q$('SELECT id,subject,title,url,created FROM resources ORDER BY created').all()};
     if(url.searchParams.get('full')==='1'){ // সম্পূর্ণ ব্যাকআপ: ইউজার (হ্যাশ করা পাসওয়ার্ডসহ) ও ফলাফল — গোপন রাখতে হবে
       out.users=q$('SELECT u,salt,hash,role,name,created FROM users').all();out.attempts=q$('SELECT * FROM attempts').all()}
     res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(JSON.stringify(out,null,1))}
+  if(p==='/api/subjects'&&m==='GET')return send(res,200,q$('SELECT id,name,icon,c1,c2 FROM subjects ORDER BY sort,rowid').all());
   if(p==='/api/resources'&&m==='GET')return send(res,200,q$('SELECT id,subject,title,url FROM resources ORDER BY created').all());
   if(p==='/api/quizzes'&&m==='GET')return send(res,200,me.role==='admin'?allQuizzes():allQuizzes().map(hideAns));
   let r=p.match(/^\/api\/quizzes\/([\w-]+)\/submit$/);
@@ -144,6 +158,16 @@ async function api(req,res,url){
       :q$('SELECT id,u,quiz_id,title,subject,score,total,created FROM attempts WHERE u=? ORDER BY created DESC LIMIT 1000').all(me.u);
     return send(res,200,rows)}
   if(me.role!=='admin'&&(m!=='GET'))return send(res,403,{error:'শুধু অ্যাডমিন এটা করতে পারবেন।'});
+  if(p==='/api/subjects'&&m==='POST'){const x=cleanSubject(b);if(!x)return send(res,400,{error:'বিষয়ের নাম দিন এবং একটি রং বেছে নিন।'});
+    const n={id:'s'+uid(),...x};q$('INSERT INTO subjects VALUES(?,?,?,?,?,?)').run(n.id,n.name,n.icon,n.c1,n.c2,q$('SELECT COALESCE(MAX(sort),-1)+1 n FROM subjects').get().n);return send(res,201,n)}
+  rr=p.match(/^\/api\/subjects\/([A-Za-z][\w-]*)$/);
+  if(rr&&m==='PUT'){const x=cleanSubject(b);if(!x)return send(res,400,{error:'বিষয়ের নাম দিন এবং একটি রং বেছে নিন।'});
+    const k=q$('UPDATE subjects SET name=?,icon=?,c1=?,c2=? WHERE id=?').run(x.name,x.icon,x.c1,x.c2,rr[1]);
+    return k.changes?send(res,200,{id:rr[1],...x}):send(res,404,{error:'বিষয় পাওয়া যায়নি।'})}
+  if(rr&&m==='DELETE'){
+    const nq=q$('SELECT COUNT(*) c FROM quizzes WHERE subject=?').get(rr[1]).c,nr=q$('SELECT COUNT(*) c FROM resources WHERE subject=?').get(rr[1]).c;
+    if(nq||nr){const bn=n=>String(n).replace(/\d/g,d=>'০১২৩৪৫৬৭৮৯'[d]);return send(res,409,{error:`এই বিষয়ে ${bn(nq)}টি কুইজ ও ${bn(nr)}টি পিডিএফ আছে। আগে সেগুলো মুছুন (কুইজ এডিট করে অন্য বিষয়েও সরানো যায়)।`})}
+    q$('DELETE FROM subjects WHERE id=?').run(rr[1]);return send(res,200,{ok:1})}
   if(p==='/api/restore'&&m==='POST'){
     try{importData(b)}catch(e){return send(res,400,{error:e.message||'ফিরিয়ে আনা যায়নি।'})}
     return send(res,200,{ok:1})}

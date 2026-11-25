@@ -1,9 +1,15 @@
-const ICON={physics:'F=ma',chemistry:'H₂O',math:'∑'};
-const SUBJ={physics:'পদার্থবিজ্ঞান',chemistry:'রসায়ন',math:'গণিত'};
+let ICON={},SUBJ={},COL={},C2={}; // বিষয়ের তথ্য সার্ভার থেকে আসে (অ্যাডমিন নিজে যোগ/বদল করতে পারেন)
+function applySubjects(list){
+  ICON={};SUBJ={};COL={};C2={};
+  list.forEach(s=>{SUBJ[s.id]=s.name;ICON[s.id]=s.icon;COL[s.id]=s.c1;C2[s.id]=s.c2});
+  let st=document.getElementById('subjstyle');
+  if(!st){st=document.createElement('style');st.id='subjstyle';document.head.appendChild(st)}
+  st.textContent=list.map(s=>'.'+s.id+'{--c:'+s.c1+';--c2:'+s.c2+'}').join('');
+}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // সাইটের নাম ও রং config.js (window.SITE) থেকে আসে
-const S=Object.assign({name:'একাডেমিক-সমাধান',fullName:'একাডেমিক-সমাধান অনলাইন পোর্টাল',tagline:'পদার্থবিজ্ঞান, রসায়ন ও গণিতের কুইজ দিয়ে নিজেকে যাচাই করুন',slogan:'তুমিই পারবে!',logo:'',colors:{}},window.SITE||{});
+const S=Object.assign({name:'একাডেমিক-সমাধান',fullName:'একাডেমিক-সমাধান অনলাইন পোর্টাল',tagline:'কুইজ ও স্টাডি ম্যাটেরিয়াল দিয়ে নিজেকে যাচাই করুন',slogan:'তুমিই পারবে!',logo:'',colors:{}},window.SITE||{});
 S.logo=S.logo||Array.from(S.name)[0]||'স';
 document.title=S.fullName;
 Object.entries(S.colors||{}).forEach(([k,v])=>{if(v)document.documentElement.style.setProperty('--'+k,v)});
@@ -32,16 +38,21 @@ function nav(){
   const subs=Object.keys(SUBJ);
   $('#top').innerHTML=`<div class="bar"><a class="logo" href="#/home"><span class="mark">${esc(S.logo)}</span><span>${esc(S.name)}</span></a>`+
    (session?`<button class="burger" id="bg" aria-label="মেনু" aria-expanded="false"><i></i><i></i><i></i></button>
-   <nav class="links" id="lk">`+A('#/home',h.includes('home'),'হোম')+subs.map(k=>A('#/s/'+k,h==='#/s/'+k||h.startsWith('#/s/'+k+'/'),SUBJ[k])).join('')+
+   <nav class="links" id="lk">`+A('#/home',h.includes('home'),'হোম')+
+    `<div class="dd" id="dd"><button class="nav dd-btn ${h.startsWith('#/s/')||h==='#/subjects'||h.startsWith('#/new/')||h.startsWith('#/edit/')?'on':''}" id="ddb" aria-haspopup="true" aria-expanded="false">বিষয় <span class="car">▾</span></button>
+     <div class="dd-menu" id="ddm">`+subs.map(k=>`<a class="ddi ${h==='#/s/'+k||h.startsWith('#/s/'+k+'/')?'on':''}" href="#/s/${k}"><i class="dot ${k}"></i>${esc(SUBJ[k])}</a>`).join('')+
+     (isAdmin()?`<a class="ddi adm" href="#/subjects">⚙ বিষয় ব্যবস্থাপনা</a>`:'')+`</div></div>`+
     A('#/results',h.startsWith('#/result'),isAdmin()?'সব ফলাফল':'আমার ফলাফল')+`<span class="sp"></span>`+
     A('#/profile',h==='#/profile',`<span class="av">${esc((session.name||session.u).trim().charAt(0).toUpperCase())}</span>${nm}${isAdmin()?' <small>(অ্যাডমিন)</small>':''}`,'prof')+
     A('#/logout',false,'লগআউট','out')+`</nav>`:'')+`</div>`;
-  const hd=$('#top'),bg=$('#bg');
+  const hd=$('#top'),bg=$('#bg'),dd=$('#dd');
+  if(dd){const b=$('#ddb');b.onclick=e=>{e.stopPropagation();const o=dd.classList.toggle('open');b.setAttribute('aria-expanded',o)};
+    document.onclick=e=>{if(!dd.contains(e.target)){dd.classList.remove('open');b.setAttribute('aria-expanded','false')}}}
   if(bg){bg.onclick=()=>{const o=hd.classList.toggle('open');bg.setAttribute('aria-expanded',o)};
     document.querySelectorAll('#lk a').forEach(x=>x.addEventListener('click',()=>{hd.classList.remove('open');bg.setAttribute('aria-expanded','false')}))}
   $('#foot').innerHTML=(session?`<div class="fwrap"><div class="fcol fbrand"><a class="logo" href="#/home"><span class="mark">${esc(S.logo)}</span><span>${esc(S.name)}</span></a>
    <p>${esc(S.tagline)}। ${esc(S.slogan)}</p></div>
-   <div class="fcol"><h3>বিষয়</h3>${subs.map(k=>`<a href="#/s/${k}">${SUBJ[k]}</a>`).join('')}</div>
+   <div class="fcol"><h3>বিষয়</h3>${subs.map(k=>`<a href="#/s/${k}">${esc(SUBJ[k])}</a>`).join('')}</div>
    <div class="fcol"><h3>পোর্টাল</h3><a href="#/home">হোম</a><a href="#/results">${isAdmin()?'সব ফলাফল':'আমার ফলাফল'}</a><a href="#/profile">প্রোফাইল</a><a href="#/logout">লগআউট</a></div></div>`:'')+
    `<div class="fbar"><span>© ${yr} ${esc(S.fullName)}</span>${session?'<button class="totop" id="tt">↑ উপরে যান</button>':''}</div>`;
   if($('#tt'))$('#tt').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
@@ -52,10 +63,11 @@ async function render(){
   if(page==='logout'){await api('POST','/api/logout');clearSession();location.hash='#/login';return}
   if(token&&!session){const r=await api('GET','/api/me');if(r.ok)session={u:r.data.u,role:r.data.role,name:r.data.name||''};else clearSession()}
   if(!session&&page!=='login'){location.hash='#/login';return}
-  if(session){const r=await api('GET','/api/quizzes');if(r.status===401){clearSession();location.hash='#/login';return}quizzes=r.data||[]
+  if(session){const sj=await api('GET','/api/subjects');if(sj.ok)applySubjects(sj.data);
+    const r=await api('GET','/api/quizzes');if(r.status===401){clearSession();location.hash='#/login';return}quizzes=r.data||[]
     const rs=await api('GET','/api/resources');resources=rs.ok?rs.data:[]}
   nav();
-  const pages={pdf:pReader,result:pReview,profile:pProfile,results:pResults,login:pLogin,home:pHome,s:pSubject,quiz:pQuiz,edit:pEdit,new:pNew};
+  const pages={subjects:pSubjects,pdf:pReader,result:pReview,profile:pProfile,results:pResults,login:pLogin,home:pHome,s:pSubject,quiz:pQuiz,edit:pEdit,new:pNew};
   (pages[page]||pHome)(arg,parts[2]);
   window.scrollTo(0,0);
 }
@@ -129,17 +141,16 @@ async function pProfile(){
 }
 /* ---------- চার্ট (বাইরের কোনো লাইব্রেরি ছাড়া, SVG) ---------- */
 const bn=n=>String(n).replace(/\d/g,d=>'০১২৩৪৫৬৭৮৯'[d]);
-const COL={physics:'#2563eb',chemistry:'#0f9d76',math:'#8b5cf6'};
 const pct=x=>Math.round(x.score/x.total*100);
 const avgOf=l=>l.length?Math.round(l.reduce((a,x)=>a+pct(x),0)/l.length):0;
 function barChart(rows){
-  const keys=Object.keys(SUBJ),W=360,H=230,L=34,B=36,T=14,ch=H-B-T,bw=56,gap=(W-L-10-bw*3)/4;
+  const keys=Object.keys(SUBJ),W=360,H=230,L=34,B=36,T=14,ch=H-B-T,n=Math.max(keys.length,1),bw=Math.min(56,(W-L-10)/(n*1.5)),gap=(W-L-10-bw*n)/(n+1);
   let s=`<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="বিষয়ভিত্তিক গড় স্কোর">`;
   [0,25,50,75,100].forEach(v=>{const y=T+ch-ch*v/100;s+=`<line x1="${L}" x2="${W-6}" y1="${y}" y2="${y}" class="gl"/><text x="${L-6}" y="${y+4}" text-anchor="end">${bn(v)}</text>`});
   keys.forEach((k,i)=>{const l=rows.filter(x=>x.subject===k),v=avgOf(l),h=ch*v/100,x=L+gap*(i+1)+bw*i,y=T+ch-h;
-    s+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,l.length?2:0)}" rx="8" fill="${COL[k]}"><title>${SUBJ[k]}: ${bn(v)}% (${bn(l.length)}টি চেষ্টা)</title></rect>
+    s+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,l.length?2:0)}" rx="8" fill="${COL[k]}"><title>${esc(SUBJ[k])}: ${bn(v)}% (${bn(l.length)}টি চেষ্টা)</title></rect>
      <text x="${x+bw/2}" y="${y-6}" text-anchor="middle" class="vl">${l.length?bn(v)+'%':'—'}</text>
-     <text x="${x+bw/2}" y="${H-14}" text-anchor="middle">${SUBJ[k]}</text>`});
+     <text x="${x+bw/2}" y="${H-14}" text-anchor="middle">${esc(Array.from(SUBJ[k]).slice(0,n>4?6:10).join(''))}</text>`});
   return s+'</svg>';
 }
 function donut(rows){
@@ -189,8 +200,8 @@ async function pReview(id){
     $('#app').innerHTML=`<h1>ফলাফল</h1><div class="card"><p class="msg">${esc(r.data.error||'লোড হয়নি')}</p>${old?'<p class="mute">সার্ভার এখনো পুরোনো সংস্করণে চলছে। নতুন server.js বসিয়ে সার্ভার বন্ধ করে আবার <b>node server.js</b> চালান।</p>':''}${back}</div>`;return}
   const d=r.data;
   if(!d.questions||!d.answers){$('#app').innerHTML=`<h1>${esc(d.title)}</h1><div class="card"><p class="mute">এই চেষ্টার উত্তর সংরক্ষিত নেই (এটি উত্তর সেভ করার সুবিধা আসার আগের)। স্কোর: <b>${d.score}/${d.total}</b></p>${back}</div>`;return}
-  $('#app').innerHTML=`<div class="head ${d.subject}"><div class="hl"><div class="badge sm">${ICON[d.subject]||''}</div><div><h1>${esc(d.title)}</h1>
-   <span class="mute">${SUBJ[d.subject]||''}${isAdmin()?' · '+esc(d.u):''} · ${new Date(d.created).toLocaleString('bn-BD')}</span></div></div>${back}</div>
+  $('#app').innerHTML=`<div class="head ${d.subject}"><div class="hl"><div class="badge sm">${esc(ICON[d.subject]||'')}</div><div><h1>${esc(d.title)}</h1>
+   <span class="mute">${esc(SUBJ[d.subject]||'')}${isAdmin()?' · '+esc(d.u):''} · ${new Date(d.created).toLocaleString('bn-BD')}</span></div></div>${back}</div>
   <div class="${d.subject}"><div class="card" style="margin-bottom:14px"><div class="score">${d.score} / ${d.total}</div><span class="mute">সবুজ = সঠিক উত্তর, লাল = আপনার ভুল উত্তর</span></div>`+
   d.questions.map((x,i)=>{const mine=d.answers[i];
     return `<div class="q"><div class="qh"><span class="qn">${i+1}</span><b>${esc(x.q)}</b></div>`+x.opts.map((o,j)=>{
@@ -207,23 +218,55 @@ async function pResults(){
   const draw=f=>{
     const list=rows.filter(x=>!f||x.subject===f);
     const avg=list.length?Math.round(list.reduce((a,x)=>a+x.score/x.total*100,0)/list.length):0;
-    $('#tb').innerHTML=list.length?list.map(x=>`<tr>${admin?`<td data-l="ব্যবহারকারী">${esc(x.u)}</td>`:''}<td data-l="কুইজ">${esc(x.title)}</td><td data-l="বিষয়">${SUBJ[x.subject]||''}</td>
+    $('#tb').innerHTML=list.length?list.map(x=>`<tr>${admin?`<td data-l="ব্যবহারকারী">${esc(x.u)}</td>`:''}<td data-l="কুইজ">${esc(x.title)}</td><td data-l="বিষয়">${esc(SUBJ[x.subject]||'(মুছে ফেলা বিষয়)')}</td>
       <td data-l="স্কোর"><b>${x.score}/${x.total}</b> <span class="mute">(${Math.round(x.score/x.total*100)}%)</span></td>
       <td data-l="সময়" class="mute">${new Date(x.created).toLocaleString('bn-BD')}</td><td data-l=""><a class="btn" href="#/result/${x.id}">উত্তর দেখুন</a></td></tr>`).join(''):
       `<tr><td colspan="6" class="mute">এখনো কোনো ফলাফল নেই।</td></tr>`;
     $('#sum').textContent=`মোট ${list.length}টি চেষ্টা · গড় ${avg}%`;
   };
   $('#app').innerHTML=`<div class="head"><div><h1>${admin?'সবার ফলাফল':'আমার ফলাফল'}</h1><span class="mute" id="sum"></span></div>
-  <select id="sf" style="width:auto" autocomplete="off"><option value="">সব বিষয়</option>${Object.keys(SUBJ).map(k=>`<option value="${k}">${SUBJ[k]}</option>`).join('')}</select></div>${charts(rows,admin)}<div class="sec">সব চেষ্টা</div>
+  <select id="sf" style="width:auto" autocomplete="off"><option value="">সব বিষয়</option>${Object.keys(SUBJ).map(k=>`<option value="${k}">${esc(SUBJ[k])}</option>`).join('')}</select></div>${charts(rows,admin)}<div class="sec">সব চেষ্টা</div>
   <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr>${admin?'<th>ব্যবহারকারী</th>':''}<th>কুইজ</th><th>বিষয়</th><th>স্কোর</th><th>সময়</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>`;
   $('#sf').onchange=e=>draw(e.target.value);draw('');
 }
 function pHome(){
   const tot=quizzes.length,qs=quizzes.reduce((a,q)=>a+q.questions.length,0);
   $('#app').innerHTML=`<section class="hero"><h1>স্বাগতম, ${esc(session.name||session.u)} 👋</h1><p>${esc(S.tagline)} — ${esc(S.slogan)}</p>
-  <div class="chips"><span class="chip">📚 ${tot}টি কুইজ</span><span class="chip">❓ ${qs}টি প্রশ্ন</span><span class="chip">৩টি বিষয়</span></div></section>
+  <div class="chips"><span class="chip">📚 ${bn(tot)}টি কুইজ</span><span class="chip">❓ ${bn(qs)}টি প্রশ্ন</span><span class="chip">${bn(Object.keys(SUBJ).length)}টি বিষয়</span></div></section>
   <div class="sec">বিষয় বেছে নিন</div><div class="grid">`+Object.keys(SUBJ).map(k=>{const n=quizzes.filter(q=>q.subject===k).length,m=resources.filter(r=>r.subject===k).length;
-   return `<a class="card subj ${k}" href="#/s/${k}"><div class="badge">${ICON[k]}</div><b>${SUBJ[k]}</b><div class="mute">${bn(n)}টি কুইজ · ${bn(m)}টি পিডিএফ</div><span class="go">শুরু করুন →</span></a>`}).join('')+`</div>`;
+   return `<a class="card subj ${k}" href="#/s/${k}"><div class="badge">${esc(ICON[k])}</div><b>${esc(SUBJ[k])}</b><div class="mute">${bn(n)}টি কুইজ · ${bn(m)}টি পিডিএফ</div><span class="go">শুরু করুন →</span></a>`}).join('')+(isAdmin()?`<a class="card subj addsub" href="#/subjects"><div class="plus">+</div><b>নতুন বিষয় যোগ করুন</b></a>`:'')+(Object.keys(SUBJ).length||isAdmin()?'':'<div class="card mute">এখনো কোনো বিষয় যোগ করা হয়নি।</div>')+`</div>`;
+}
+const PALETTE=[['#2563eb','#6366f1'],['#0f9d76','#14b8a6'],['#8b5cf6','#d946ef'],['#f97316','#f59e0b'],['#e11d48','#fb7185'],['#0891b2','#38bdf8'],['#4d7c0f','#84cc16'],['#475569','#94a3b8']];
+function pSubjects(){ // অ্যাডমিন: বিষয় যোগ / এডিট / ডিলিট
+  if(!isAdmin())return pHome();
+  const ks=Object.keys(SUBJ);
+  $('#app').innerHTML=`<div class="head"><div><h1>বিষয় ব্যবস্থাপনা</h1><span class="mute">${bn(ks.length)}টি বিষয়</span></div><a class="btn" href="#/home">← হোম</a></div>
+  <div class="list">`+(ks.length?ks.map(k=>`<div class="card item ${k}"><div class="ti"><div class="badge sm">${esc(ICON[k])}</div><div><b>${esc(SUBJ[k])}</b>
+    <div class="mute">${bn(quizzes.filter(q=>q.subject===k).length)}টি কুইজ · ${bn(resources.filter(r=>r.subject===k).length)}টি পিডিএফ</div></div></div>
+    <div class="row"><a class="btn" href="#/s/${k}">খুলুন</a><button class="btn" data-se="${k}">এডিট</button><button class="btn del" data-sd="${k}">ডিলিট</button></div></div>`).join(''):'<div class="card mute">এখনো কোনো বিষয় নেই। নিচের ফর্মে প্রথম বিষয়টি যোগ করুন।</div>')+`</div>
+  <div class="card" style="margin-top:16px"><h2 id="sft">নতুন বিষয় যোগ করুন</h2>
+   <label for="sn">বিষয়ের নাম</label><input id="sn" maxlength="40" placeholder="যেমন: জীববিজ্ঞান">
+   <label for="si">আইকনের লেখা (ঐচ্ছিক, সর্বোচ্চ ৪ অক্ষর)</label><input id="si" maxlength="4" placeholder="যেমন: DNA">
+   <label>রং</label><div class="sws" role="radiogroup" aria-label="রং">`+PALETTE.map((c,i)=>`<label class="sw"><input type="radio" name="sc" value="${i}" ${i===0?'checked':''} aria-label="রং ${bn(i+1)}"><span style="background:linear-gradient(135deg,${c[0]},${c[1]})"></span></label>`).join('')+`</div>
+   <p class="msg" id="sm" role="alert"></p><div class="row"><button class="btn pri" id="ss">সেভ করুন</button><button class="btn" id="sx" hidden>বাতিল</button></div></div>`;
+  let editId=null,keep=null;
+  const msg=t=>{$('#sm').textContent=t};
+  $('#ss').onclick=async()=>{
+    const ch=document.querySelector('input[name=sc]:checked');
+    const col=ch?PALETTE[+ch.value]:keep||PALETTE[0];
+    const body={name:$('#sn').value,icon:$('#si').value,c1:col[0],c2:col[1]};
+    const r=editId?await api('PUT','/api/subjects/'+editId,body):await api('POST','/api/subjects',body);
+    if(!r.ok){msg(r.data.error||'সেভ হয়নি।');return}render()};
+  document.querySelectorAll('[data-se]').forEach(b=>b.onclick=()=>{const k=b.dataset.se;editId=k;
+    $('#sn').value=SUBJ[k];$('#si').value=ICON[k];$('#sft').textContent='বিষয় এডিট করুন';$('#sx').hidden=false;
+    const i=PALETTE.findIndex(c=>c[0]===COL[k]);keep=[COL[k],C2[k]];
+    document.querySelectorAll('input[name=sc]').forEach(r=>r.checked=(+r.value===i));
+    $('#sn').scrollIntoView({block:'center'});$('#sn').focus()});
+  $('#sx').onclick=()=>render();
+  document.querySelectorAll('[data-sd]').forEach(b=>b.onclick=async()=>{const k=b.dataset.sd;
+    if(!confirm('“'+SUBJ[k]+'” বিষয়টি মুছে ফেলবেন?'))return;
+    const r=await api('DELETE','/api/subjects/'+k);
+    if(!r.ok){msg(r.data.error||'মোছা যায়নি।');$('#sm').scrollIntoView({block:'center'});return}render()});
 }
 function quizList(k,list){
   return `<div class="list ${k}">`+(list.length?list.map((q,n)=>`<div class="card item"><div class="ti"><span class="no">${bn(n+1)}</span><div><b>${esc(q.title)}</b><div class="mute">${bn(q.questions.length)}টি প্রশ্ন</div></div></div>
@@ -235,7 +278,7 @@ function pSubject(k,tab){ // কুইজ ও পিডিএফ আলাদা
   if(!SUBJ[k])return pHome();
   const pdf=tab==='pdf';
   const list=quizzes.filter(q=>q.subject===k),mats=resources.filter(r=>r.subject===k);
-  $('#app').innerHTML=`<div class="head ${k}"><div class="hl"><div class="badge sm">${ICON[k]}</div><div><h1>${SUBJ[k]}</h1><span class="mute">${bn(list.length)}টি কুইজ · ${bn(mats.length)}টি পিডিএফ</span></div></div>
+  $('#app').innerHTML=`<div class="head ${k}"><div class="hl"><div class="badge sm">${esc(ICON[k])}</div><div><h1>${esc(SUBJ[k])}</h1><span class="mute">${bn(list.length)}টি কুইজ · ${bn(mats.length)}টি পিডিএফ</span></div></div>
    ${isAdmin()&&!pdf?`<a class="btn pri" href="#/new/${k}">+ নতুন কুইজ</a>`:''}</div>
   <div class="tabs ${k}" role="tablist">
    <a role="tab" aria-selected="${!pdf}" class="tab ${pdf?'':'on'}" href="#/s/${k}">কুইজ <span class="cnt">${bn(list.length)}</span></a>
@@ -267,7 +310,7 @@ function pReader(id){ // পিডিএফ অ্যাপের ভেতর�
   if(!r){location.hash='#/home';return}
   const e=embedInfo(r.url),mobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   let mode=(!e.drive&&mobile)?'alt':'primary';
-  $('#app').innerHTML=`<div class="head ${r.subject}"><div class="hl"><div class="badge sm">PDF</div><div><h1 style="font-size:1.35rem">${esc(r.title)}</h1><span class="mute">${SUBJ[r.subject]||''}</span></div></div>
+  $('#app').innerHTML=`<div class="head ${r.subject}"><div class="hl"><div class="badge sm">PDF</div><div><h1 style="font-size:1.35rem">${esc(r.title)}</h1><span class="mute">${esc(SUBJ[r.subject]||'')}</span></div></div>
    <div class="row"><a class="btn" href="#/s/${r.subject}/pdf">← ফিরে যান</a>${e.drive?'':'<button class="btn" id="vw">ভিউয়ার বদলান</button>'}
    <a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">নতুন ট্যাবে খুলুন ↗</a></div></div>
    <div class="pdfbox"><iframe id="pf" title="${esc(r.title)}" src="${esc(mode==='alt'?e.alt:e.primary)}" referrerpolicy="no-referrer" allow="fullscreen"></iframe></div>
@@ -290,7 +333,7 @@ function pQuiz(id){
   const q=quizzes.find(x=>x.id===id);if(!q)return pHome();
   if(isAdmin()){location.hash='#/s/'+q.subject;return}
   if(answers._id!==id){answers={_id:id};submitted=false;result=null}
-  $('#app').innerHTML=`<div class="head ${q.subject}"><div><h1>${esc(q.title)}</h1><span class="mute">${SUBJ[q.subject]}</span></div></div><div class="${q.subject}">${submitted?'':'<div class="prog"><i id="pb"></i></div>'}`+
+  $('#app').innerHTML=`<div class="head ${q.subject}"><div><h1>${esc(q.title)}</h1><span class="mute">${esc(SUBJ[q.subject])}</span></div></div><div class="${q.subject}">${submitted?'':'<div class="prog"><i id="pb"></i></div>'}`+
    q.questions.map((x,i)=>`<div class="q"><div class="qh"><span class="qn">${i+1}</span><b>${esc(x.q)}</b></div>`+x.opts.map((o,j)=>{
      let c='';if(submitted&&result){if(j===result.correct[i])c='right';else if(answers[i]===j)c='wrong'}
      return `<label class="choice ${c}"><input type="radio" name="q${i}" value="${j}" ${answers[i]===j?'checked':''} ${submitted?'disabled':''}>${esc(o)}</label>`}).join('')+`</div>`).join('')+
@@ -315,7 +358,7 @@ function readForm(){
 function editor(){
   $('#app').innerHTML=`<div class="head ${draft.subject}"><h1>${draft.isNew?'নতুন কুইজ':'কুইজ এডিট'}</h1></div><div class="${draft.subject}">
   <label for="t">কুইজের শিরোনাম</label><input id="t" value="${esc(draft.title)}" placeholder="যেমন: নিউটনের গতিসূত্র">
-  <label for="sj">বিষয়</label><select id="sj">${Object.keys(SUBJ).map(k=>`<option value="${k}" ${k===draft.subject?'selected':''}>${SUBJ[k]}</option>`).join('')}</select>
+  <label for="sj">বিষয়</label><select id="sj">${Object.keys(SUBJ).map(k=>`<option value="${k}" ${k===draft.subject?'selected':''}>${esc(SUBJ[k])}</option>`).join('')}</select>
   <div id="qs">`+draft.questions.map((x,i)=>`<div class="q"><div class="item"><b>প্রশ্ন ${i+1}</b><button class="btn del" data-rm="${i}">প্রশ্ন মুছুন</button></div>
    <textarea class="qt" rows="2" placeholder="প্রশ্ন লিখুন">${esc(x.q)}</textarea>`+
    x.opts.map((o,j)=>`<div class="opt"><input type="radio" name="a${i}" value="${j}" ${x.a===j?'checked':''} title="সঠিক উত্তর"><input class="ot" value="${esc(o)}" placeholder="অপশন ${j+1}"></div>`).join('')+
