@@ -49,7 +49,8 @@ function clean(q){ // কুইজ যাচাই
   return{subject:q.subject,title:q.title.trim(),questions:qs};
 }
 const hideAns=q=>({...q,questions:q.questions.map(({a,...r})=>r)});
-const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'};
+const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon','.png':'image/png'};
+const FILES=new Set(['index.html','style.css','app.js','config.js','favicon.svg','favicon.ico','apple-touch-icon.png']);
 async function api(req,res,url){
   const tok=(req.headers.authorization||'').replace('Bearer ','');const me=getSession(tok);
   const ip=(req.headers['x-forwarded-for']||'').split(',')[0].trim()||req.socket.remoteAddress;
@@ -118,7 +119,7 @@ http.createServer(async(req,res)=>{
     if(req.method==='OPTIONS'){res.writeHead(204);return res.end()}
     if(url.pathname.startsWith('/api/'))return await api(req,res,url);
     const f=url.pathname==='/'?'index.html':url.pathname.slice(1);
-    if(!['index.html','style.css','app.js'].includes(f)){res.writeHead(404);return res.end('Not found')}
+    if(!FILES.has(f)){res.writeHead(404);return res.end('Not found')}
     res.writeHead(200,{'Content-Type':MIME[path.extname(f)]});fs.createReadStream(path.join(__dirname,f)).pipe(res);
   }catch(e){console.error(e);send(res,500,{error:'সার্ভারে সমস্যা হয়েছে।'})}
 }).listen(PORT,()=>console.log('চালু: http://localhost:'+PORT));
