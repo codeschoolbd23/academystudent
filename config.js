@@ -15,4 +15,4 @@ window.SITE={
 // ===== ব্যাকএন্ডের ঠিকানা =====
 // ফ্রন্টএন্ড ও server.js একই জায়গায় থাকলে ফাঁকা রাখুন।
 // ফ্রন্টএন্ড GitHub Pages-এ আর ব্যাকএন্ড অন্য জায়গায় থাকলে দিন, যেমন: 'https://your-app.onrender.com'
-window.API_BASE='';
+window.API_BASE = "https://academystudent.onrender.com/";
