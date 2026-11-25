@@ -5,21 +5,19 @@
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{margin:0;font-family:'Hind Siliguri',system-ui,sans-serif;color:var(--ink);line-height:1.65;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;
- background:
-  radial-gradient(900px 520px at 92% -8%,rgba(99,102,241,.20),transparent 62%),
-  radial-gradient(800px 520px at -6% 8%,rgba(20,184,166,.20),transparent 62%),
-  radial-gradient(900px 600px at 55% 108%,rgba(245,184,61,.16),transparent 62%),var(--bg)}
+ background:white
+}
 body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
- background-image:radial-gradient(color-mix(in srgb,var(--ink) 12%,transparent) 1px,transparent 1.3px);background-size:24px 24px;
+ background:white;
  -webkit-mask-image:linear-gradient(to bottom,#000,transparent 75%);mask-image:linear-gradient(to bottom,#000,transparent 75%)}
 main{flex:1;width:100%;margin:0 auto;padding:clamp(18px,3vw,36px) clamp(14px,3vw,24px) 48px}
 a{color:inherit}
 /* ---------- navbar ---------- */
-header{position:sticky;top:0;z-index:30;color:#fff;background:linear-gradient(100deg,var(--brand),var(--brand2));box-shadow:0 6px 24px rgba(0,0,0,.2);border-bottom:1px solid rgba(255,255,255,.08)}
+header{position:sticky;top:0;z-index:30;color:#fff;background:linear-gradient(100deg,navy);box-shadow:0 6px 24px rgba(0,0,0,.2);border-bottom:1px solid rgba(255,255,255,.08)}
 .bar{margin:auto;display:flex;align-items:center;gap:12px;padding:10px clamp(14px,3vw,24px);min-height:var(--hh);position:relative}
 .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.08rem;color:#fff;text-decoration:none;white-space:nowrap}
-.mark{flex:none;width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#ff8a4c);color:#3a2300;display:grid;place-items:center;font-weight:700;font-size:1.2rem;box-shadow:0 4px 14px rgba(245,184,61,.45)}
-.mark.big{width:58px;height:58px;font-size:1.8rem;border-radius:17px;margin:0 auto 10px}
+.mark{flex:none;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#ff8a4c);color:#3a2300;display:grid;place-items:center;font-weight:700;font-size:1.2rem;box-shadow:0 4px 14px rgba(245,184,61,.45)}
+.mark.big{height:58px;font-size:1.8rem;border-radius:17px;margin:0 auto 10px}
 .links{display:flex;align-items:center;gap:4px;margin-left:auto}
 .links .sp{width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 8px}
 a.nav{display:inline-flex;align-items:center;color:#cfe3e8;text-decoration:none;padding:8px 14px;border-radius:99px;font-size:.95rem;white-space:nowrap;transition:background .15s,color .15s}
@@ -46,7 +44,7 @@ header.open .burger i:nth-child(3){top:21px;transform:rotate(-45deg)}
  a.nav.out{justify-content:center;margin-top:4px}
 }
 /* ---------- footer ---------- */
-footer{margin-top:auto;color:#cfe3e8;background:linear-gradient(100deg,var(--brand),var(--brand2));border-top:3px solid var(--accent)}
+footer{margin-top:auto;color:#cfe3e8;background:linear-gradient(100deg,navy);border-top:3px solid var(--accent)}
 .fwrap{margin:auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:28px;padding:34px clamp(14px,3vw,24px) 20px}
 .fcol h3{margin:0 0 10px;font-size:1rem;color:#fff}
 .fcol a{display:block;color:#cfe3e8;text-decoration:none;padding:4px 0;font-size:.95rem}
@@ -169,7 +167,7 @@ svg.ch.donut{max-width:170px;flex:none}svg.ch.donut .big{fill:var(--ink);font-si
 /* ---------- মোবাইল ফুটার (সুন্দর লেআউট) ---------- */
 @media(max-width:640px){
  footer{margin-top:32px;border-top:0;border-radius:26px 26px 0 0;position:relative;overflow:hidden;
-  background:radial-gradient(420px 200px at 100% 0,rgba(245,184,61,.18),transparent 70%),linear-gradient(160deg,var(--brand),var(--brand2))}
+  background:radial-gradient(420px 200px at 100% 0,rgba(245,184,61,.18),transparent 70%),linear-gradient(160deg,navy)}
  footer:before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--accent),#ff8a4c,#8b5cf6)}
  .fwrap{grid-template-columns:1fr 1fr;gap:12px;padding:22px 16px 6px}
  .fcol.fbrand{grid-column:1/-1;text-align:center;padding:0 0 8px}
