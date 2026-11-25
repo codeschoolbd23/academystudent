@@ -4,7 +4,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // সাইটের নাম ও রং config.js (window.SITE) থেকে আসে
 const S=Object.assign({name:'একাডেমিক-সমাধান',fullName:'একাডেমিক-সমাধান অনলাইন পোর্টাল',tagline:'পদার্থবিজ্ঞান, রসায়ন ও গণিতের কুইজ দিয়ে নিজেকে যাচাই করুন',slogan:'তুমিই পারবে!',logo:'',colors:{}},window.SITE||{});
-S.logo=S.logo||Array.from(S.name)[0]||'স';
+S.logo = S.logo;
 document.title=S.fullName;
 Object.entries(S.colors||{}).forEach(([k,v])=>{if(v)document.documentElement.style.setProperty('--'+k,v)});
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
