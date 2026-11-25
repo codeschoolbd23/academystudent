@@ -168,7 +168,7 @@ async function render() {
 }
 function pLogin() {
   $("#app").innerHTML =
-    `<div class="card login"><div class="mark big">স</div><h1>লগইন</h1><p class="mute">কুইজ দিতে অ্যাকাউন্টে ঢুকুন।</p>
+    `<div class="card login"><div class="mark big"></div>একাডেমিক-সমাধান</div><h1>লগইন</h1><p class="mute">কুইজ দিতে অ্যাকাউন্টে ঢুকুন।</p>
   <label for="u">ইউজারনেম</label><input id="u" autocomplete="username">
   <label for="p">পাসওয়ার্ড</label><input id="p" type="password" autocomplete="current-password">
   <p class="msg" id="m" role="alert"></p>
