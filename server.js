@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users(u TEXT PRIMARY KEY,salt TEXT NOT NULL,hash TEXT
 CREATE TABLE IF NOT EXISTS quizzes(id TEXT PRIMARY KEY,subject TEXT NOT NULL,title TEXT NOT NULL,questions TEXT NOT NULL,created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS attempts(id INTEGER PRIMARY KEY AUTOINCREMENT,u TEXT NOT NULL,quiz_id TEXT NOT NULL,title TEXT NOT NULL,subject TEXT NOT NULL,score INTEGER NOT NULL,total INTEGER NOT NULL,created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS resources(id TEXT PRIMARY KEY,subject TEXT NOT NULL,title TEXT NOT NULL,url TEXT NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY,v TEXT);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,u TEXT NOT NULL,role TEXT NOT NULL,created INTEGER NOT NULL);`);
 {const cols=sql.prepare('PRAGMA table_info(users)').all().map(c=>c.name);
  if(!cols.includes('name'))sql.exec("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''");
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,u TEXT NOT NULL,role 
 {const ac=sql.prepare('PRAGMA table_info(attempts)').all().map(c=>c.name);
  if(!ac.includes('answers'))sql.exec("ALTER TABLE attempts ADD COLUMN answers TEXT");
  if(!ac.includes('snapshot'))sql.exec("ALTER TABLE attempts ADD COLUMN snapshot TEXT");}
+const SUBJ=['physics','chemistry','math'];
 const hash=(p,salt)=>crypto.scryptSync(p,salt,32).toString('hex');
 const mkUser=(u,p,role)=>{const salt=crypto.randomBytes(8).toString('hex');return{u,salt,hash:hash(p,salt),role}};
 const uid=()=>crypto.randomBytes(5).toString('hex');
@@ -24,15 +26,41 @@ const addQuiz=x=>q$('INSERT INTO quizzes VALUES(?,?,?,?,?)').run(x.id,x.subject,
 const rowQ=r=>r&&{id:r.id,subject:r.subject,title:r.title,questions:JSON.parse(r.questions)};
 const allQuizzes=()=>q$('SELECT * FROM quizzes ORDER BY created').all().map(rowQ);
 const getQuiz=id=>rowQ(q$('SELECT * FROM quizzes WHERE id=?').get(id));
-// প্রথমবার চালালে: পুরোনো data.json থাকলে তা ইমপোর্ট, নইলে ডিফল্ট ডেটা
+q$("INSERT OR IGNORE INTO meta VALUES('created',?)").run(String(Date.now()));
+const SEED=process.env.SEED_FILE||path.join(__dirname,'seed.json');
+function importData(d){ // ব্যাকআপ/seed থেকে ডেটা বসানো (যে অংশ দেওয়া আছে শুধু সেটাই বদলায়)
+  if(!d||typeof d!=='object')throw new Error('ফাইলটি সঠিক ব্যাকআপ নয়।');
+  const qs=Array.isArray(d.quizzes)?d.quizzes.map(x=>{const c=clean(x);if(!c)throw new Error('ব্যাকআপে একটি কুইজের তথ্য ভুল।');return{id:String(x.id||uid()),...c}}):null;
+  const rs=Array.isArray(d.resources)?d.resources.map(x=>{const c=cleanRes(x);if(!c)throw new Error('ব্যাকআপে একটি পিডিএফ লিংক ভুল।');return{id:String(x.id||uid()),...c,created:Number(x.created)||Date.now()}}):null;
+  const us=Array.isArray(d.users)?d.users.map(x=>{if(!x||!x.u||!x.salt||!x.hash||!['admin','student'].includes(x.role))throw new Error('ব্যাকআপে একটি ইউজারের তথ্য ভুল।');return x}):null;
+  if(us&&!us.some(x=>x.role==='admin'))throw new Error('ব্যাকআপে কোনো অ্যাডমিন নেই।');
+  const at=Array.isArray(d.attempts)?d.attempts:null;
+  sql.exec('BEGIN');
+  try{
+    if(qs){sql.exec('DELETE FROM quizzes');qs.forEach(x=>q$('INSERT INTO quizzes VALUES(?,?,?,?,?)').run(x.id,x.subject,x.title,JSON.stringify(x.questions),Date.now()))}
+    if(rs){sql.exec('DELETE FROM resources');rs.forEach(x=>q$('INSERT INTO resources VALUES(?,?,?,?,?)').run(x.id,x.subject,x.title,x.url,x.created))}
+    if(us){sql.exec('DELETE FROM users');us.forEach(x=>q$('INSERT INTO users(u,salt,hash,role,name,created) VALUES(?,?,?,?,?,?)').run(String(x.u),String(x.salt),String(x.hash),x.role,String(x.name||''),Number(x.created)||0));
+      sql.exec('DELETE FROM sessions WHERE u NOT IN (SELECT u FROM users)')}
+    if(at){sql.exec('DELETE FROM attempts');at.forEach(x=>q$('INSERT INTO attempts(u,quiz_id,title,subject,score,total,created,answers,snapshot) VALUES(?,?,?,?,?,?,?,?,?)').run(String(x.u),String(x.quiz_id),String(x.title),String(x.subject),Number(x.score)||0,Number(x.total)||0,Number(x.created)||Date.now(),x.answers==null?null:String(x.answers),x.snapshot==null?null:String(x.snapshot)))}
+    sql.exec('COMMIT');
+  }catch(e){sql.exec('ROLLBACK');throw e}
+}
+// প্রথমবার চালালে: পুরোনো data.json থাকলে তা ইমপোর্ট, নইলে অ্যাডমিন + (seed.json অথবা ডিফল্ট কুইজ)
 if(!q$('SELECT COUNT(*) c FROM users').get().c){
-  let old=null;try{old=JSON.parse(fs.readFileSync(OLD,'utf8'))}catch(e){}
+  let old=null,seed=null;
+  try{old=JSON.parse(fs.readFileSync(OLD,'utf8'))}catch(e){}
+  try{seed=JSON.parse(fs.readFileSync(SEED,'utf8'))}catch(e){}
   if(old){old.users.forEach(addUser);old.quizzes.forEach(addQuiz);console.log('data.json থেকে ডেটা ইমপোর্ট হয়েছে')}
-  else{addUser(mkUser('admin',process.env.ADMIN_PASSWORD||'admin123','admin'));
-    if(!process.env.ADMIN_PASSWORD)console.warn('সতর্কতা: অ্যাডমিনের পাসওয়ার্ড admin123। অনলাইনে দেওয়ার আগে ADMIN_PASSWORD সেট করুন।');[
-   {id:'p1',subject:'physics',title:'গতি ও বল',questions:[{q:'বলের SI একক কী?',opts:['জুল','নিউটন','ওয়াট','প্যাসকেল'],a:1}]},
-   {id:'c1',subject:'chemistry',title:'মৌলের পর্যায় সারণি',questions:[{q:'পানির সংকেত কী?',opts:['CO2','H2O','NaCl','O2'],a:1}]},
-   {id:'m1',subject:'math',title:'বীজগণিত পরিচিতি',questions:[{q:'(a+b)² = ?',opts:['a²+b²','a²+2ab+b²','a²-2ab+b²','2a+2b'],a:1}]}].forEach(addQuiz)}
+  else{
+    addUser(mkUser('admin',process.env.ADMIN_PASSWORD||'admin123','admin'));
+    if(!process.env.ADMIN_PASSWORD)console.warn('সতর্কতা: অ্যাডমিনের পাসওয়ার্ড admin123। অনলাইনে দেওয়ার আগে ADMIN_PASSWORD সেট করুন।');
+    let ok=false;
+    if(seed){try{importData(seed);ok=true;console.log('seed.json থেকে কুইজ ও পিডিএফ ফিরিয়ে আনা হয়েছে')}catch(e){console.error('seed.json ইমপোর্ট হয়নি:',e.message)}}
+    if(!ok)[
+     {id:'p1',subject:'physics',title:'গতি ও বল',questions:[{q:'বলের SI একক কী?',opts:['জুল','নিউটন','ওয়াট','প্যাসকেল'],a:1}]},
+     {id:'c1',subject:'chemistry',title:'মৌলের পর্যায় সারণি',questions:[{q:'পানির সংকেত কী?',opts:['CO2','H2O','NaCl','O2'],a:1}]},
+     {id:'m1',subject:'math',title:'বীজগণিত পরিচিতি',questions:[{q:'(a+b)² = ?',opts:['a²+b²','a²+2ab+b²','a²-2ab+b²','2a+2b'],a:1}]}].forEach(addQuiz);
+  }
 }
 const ALLOWED=process.env.ALLOWED_ORIGIN||''; // ফ্রন্টএন্ড অন্য ঠিকানায় (যেমন GitHub Pages) থাকলে সেই ঠিকানা দিন
 const fails=new Map(); // লগইনে বারবার ভুল চেষ্টা আটকানো
@@ -40,9 +68,8 @@ const limited=ip=>{const f=fails.get(ip);return !!f&&f.n>=10&&Date.now()-f.t<600
 const SESSION_DAYS=30;
 q$('DELETE FROM sessions WHERE created<?').run(Date.now()-SESSION_DAYS*864e5);
 const getSession=t=>t?q$('SELECT s.u,s.role,u.name FROM sessions s JOIN users u ON u.u=s.u WHERE s.token=?').get(t):null;
-const SUBJ=['physics','chemistry','math'];
 const send=(res,code,obj)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(obj))};
-const body=req=>new Promise(r=>{let d='';req.on('data',c=>{d+=c;if(d.length>1e6)req.destroy()});req.on('end',()=>{try{r(JSON.parse(d||'{}'))}catch(e){r({})}})});
+const body=req=>new Promise(r=>{let d='';req.on('data',c=>{d+=c;if(d.length>5e6)req.destroy()});req.on('end',()=>{try{r(JSON.parse(d||'{}'))}catch(e){r({})}})});
 function clean(q){ // কুইজ যাচাই
   if(!q||typeof q.title!=='string'||!q.title.trim()||!SUBJ.includes(q.subject)||!Array.isArray(q.questions)||!q.questions.length)return null;
   const qs=q.questions.map(x=>({q:String(x.q||'').trim(),opts:(x.opts||[]).slice(0,4).map(o=>String(o).trim()),a:Number(x.a)}));
@@ -96,6 +123,14 @@ async function api(req,res,url){
     q$('UPDATE users SET salt=?,hash=? WHERE u=?').run(salt,hash(np,salt),me.u);
     q$('DELETE FROM sessions WHERE u=? AND token<>?').run(me.u,tok); // অন্য ডিভাইসের সেশন বন্ধ
     return send(res,200,{ok:1})}
+  if(p==='/api/admin/info'&&m==='GET'){if(me.role!=='admin')return send(res,403,{error:'শুধু অ্যাডমিন এটা করতে পারবেন।'});
+    const c=t=>q$('SELECT COUNT(*) c FROM '+t).get().c;
+    return send(res,200,{created:Number(q$("SELECT v FROM meta WHERE k='created'").get().v),quizzes:c('quizzes'),resources:c('resources'),users:c('users'),attempts:c('attempts')})}
+  if(p==='/api/backup'&&m==='GET'){if(me.role!=='admin')return send(res,403,{error:'শুধু অ্যাডমিন এটা করতে পারবেন।'});
+    const out={version:1,exported:new Date().toISOString(),quizzes:allQuizzes(),resources:q$('SELECT id,subject,title,url,created FROM resources ORDER BY created').all()};
+    if(url.searchParams.get('full')==='1'){ // সম্পূর্ণ ব্যাকআপ: ইউজার (হ্যাশ করা পাসওয়ার্ডসহ) ও ফলাফল — গোপন রাখতে হবে
+      out.users=q$('SELECT u,salt,hash,role,name,created FROM users').all();out.attempts=q$('SELECT * FROM attempts').all()}
+    res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});return res.end(JSON.stringify(out,null,1))}
   if(p==='/api/resources'&&m==='GET')return send(res,200,q$('SELECT id,subject,title,url FROM resources ORDER BY created').all());
   if(p==='/api/quizzes'&&m==='GET')return send(res,200,me.role==='admin'?allQuizzes():allQuizzes().map(hideAns));
   let r=p.match(/^\/api\/quizzes\/([\w-]+)\/submit$/);
@@ -109,6 +144,9 @@ async function api(req,res,url){
       :q$('SELECT id,u,quiz_id,title,subject,score,total,created FROM attempts WHERE u=? ORDER BY created DESC LIMIT 1000').all(me.u);
     return send(res,200,rows)}
   if(me.role!=='admin'&&(m!=='GET'))return send(res,403,{error:'শুধু অ্যাডমিন এটা করতে পারবেন।'});
+  if(p==='/api/restore'&&m==='POST'){
+    try{importData(b)}catch(e){return send(res,400,{error:e.message||'ফিরিয়ে আনা যায়নি।'})}
+    return send(res,200,{ok:1})}
   if(p==='/api/resources'&&m==='POST'){const x=cleanRes(b);if(!x)return send(res,400,{error:'শিরোনাম দিন এবং https:// দিয়ে শুরু হওয়া পূর্ণ লিংক দিন।'});
     const n={id:uid(),...x};q$('INSERT INTO resources VALUES(?,?,?,?,?)').run(n.id,n.subject,n.title,n.url,Date.now());return send(res,201,n)}
   rr=p.match(/^\/api\/resources\/([\w-]+)$/);

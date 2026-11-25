@@ -32,7 +32,7 @@ function nav(){
   const subs=Object.keys(SUBJ);
   $('#top').innerHTML=`<div class="bar"><a class="logo" href="#/home"><span class="mark">${esc(S.logo)}</span><span>${esc(S.name)}</span></a>`+
    (session?`<button class="burger" id="bg" aria-label="মেনু" aria-expanded="false"><i></i><i></i><i></i></button>
-   <nav class="links" id="lk">`+A('#/home',h.includes('home'),'হোম')+subs.map(k=>A('#/s/'+k,h==='#/s/'+k,SUBJ[k])).join('')+
+   <nav class="links" id="lk">`+A('#/home',h.includes('home'),'হোম')+subs.map(k=>A('#/s/'+k,h==='#/s/'+k||h.startsWith('#/s/'+k+'/'),SUBJ[k])).join('')+
     A('#/results',h.startsWith('#/result'),isAdmin()?'সব ফলাফল':'আমার ফলাফল')+`<span class="sp"></span>`+
     A('#/profile',h==='#/profile',`<span class="av">${esc((session.name||session.u).trim().charAt(0).toUpperCase())}</span>${nm}${isAdmin()?' <small>(অ্যাডমিন)</small>':''}`,'prof')+
     A('#/logout',false,'লগআউট','out')+`</nav>`:'')+`</div>`;
@@ -56,7 +56,7 @@ async function render(){
     const rs=await api('GET','/api/resources');resources=rs.ok?rs.data:[]}
   nav();
   const pages={pdf:pReader,result:pReview,profile:pProfile,results:pResults,login:pLogin,home:pHome,s:pSubject,quiz:pQuiz,edit:pEdit,new:pNew};
-  (pages[page]||pHome)(arg);
+  (pages[page]||pHome)(arg,parts[2]);
   window.scrollTo(0,0);
 }
 function pLogin(){
@@ -76,6 +76,31 @@ function pLogin(){
     const r=await api('POST',path,{u,p});
     if(!r.ok){$('#m').textContent=r.data.error||'সমস্যা হয়েছে।';return}setSession(r.data);location.hash='#/home';render()};
   $('#li').onclick=()=>go('/api/login');[$('#u'),$('#p')].forEach(e=>e.onkeydown=ev=>{if(ev.key==='Enter')go('/api/login')});$('#rg').onclick=()=>go('/api/register');
+}
+async function mountBackup(){ // অ্যাডমিনের জন্য ডেটা ব্যাকআপ ও ফিরিয়ে আনা
+  const r=await api('GET','/api/admin/info');if(!r.ok||!$('#app'))return;const d=r.data;
+  $('#app').insertAdjacentHTML('beforeend',`<div class="card" style="margin-top:18px"><h2>ডেটা ব্যাকআপ</h2>
+   <p style="margin:0 0 6px">ডেটাবেস প্রথম তৈরি: <b>${new Date(d.created).toLocaleString('bn-BD')}</b></p>
+   <p class="mute" style="margin:0 0 10px">${bn(d.quizzes)}টি কুইজ · ${bn(d.resources)}টি পিডিএফ লিংক · ${bn(d.users)} জন ইউজার · ${bn(d.attempts)}টি ফলাফল</p>
+   <p class="mute" style="font-size:.9rem">এই তারিখ বারবার নতুন দেখালে বুঝবেন হোস্ট ডেটা মুছে ফেলছে। তাই মাঝে মাঝে ব্যাকআপ নামিয়ে রাখুন।</p>
+   <div class="row"><button class="btn pri" id="bk1">কুইজ ও পিডিএফ ব্যাকআপ</button><button class="btn" id="bk2">সম্পূর্ণ ব্যাকআপ (ইউজার ও ফলাফলসহ)</button></div>
+   <p class="mute" style="font-size:.85rem;margin:8px 0 0">প্রথমটি পাবলিক রিপোজিটরিতে <b>seed.json</b> নামে রাখা নিরাপদ। সম্পূর্ণ ব্যাকআপে হ্যাশ করা পাসওয়ার্ড থাকে, ফাইলটি গোপন রাখুন।</p>
+   <label for="rf">ব্যাকআপ ফাইল থেকে ফিরিয়ে আনুন</label><input id="rf" type="file" accept=".json,application/json">
+   <p class="msg" id="bm" role="alert"></p></div>`);
+  const msg=(t,ok)=>{const m=$('#bm');m.style.color=ok?'var(--ok)':'';m.textContent=t};
+  const dl=async full=>{
+    try{const x=await fetch(API+'/api/backup'+(full?'?full=1':''),{headers:{Authorization:'Bearer '+token}});
+      if(!x.ok)throw 0;const u=URL.createObjectURL(await x.blob()),l=document.createElement('a');
+      l.href=u;l.download=(full?'backup-full-':'backup-')+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(l);l.click();l.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),2000);msg('ব্যাকআপ ফাইল নামানো হয়েছে।',true)}
+    catch(e){msg('ব্যাকআপ নামানো যায়নি।')}};
+  $('#bk1').onclick=()=>dl(false);$('#bk2').onclick=()=>dl(true);
+  $('#rf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+    let obj;try{obj=JSON.parse(await f.text())}catch(x){msg('ফাইলটি সঠিক JSON নয়।');return}
+    if(!confirm('বর্তমান কুইজ ও পিডিএফ'+(obj.users?', ইউজার'+(obj.attempts?' ও ফলাফল':''):'')+' মুছে ব্যাকআপের ডেটা বসানো হবে। নিশ্চিত?')){e.target.value='';return}
+    const r=await api('POST','/api/restore',obj);
+    if(!r.ok){msg(r.data.error||'ফিরিয়ে আনা যায়নি।');return}
+    msg('ডেটা ফিরিয়ে আনা হয়েছে।',true);e.target.value='';setTimeout(render,700)};
 }
 async function pProfile(){
   const r=await api('GET','/api/profile');if(!r.ok){location.hash='#/login';return}
@@ -100,6 +125,7 @@ async function pProfile(){
     const x=await api('PUT','/api/password',{oldPass:$('#op').value,newPass:$('#np').value});
     if(x.ok){m.style.color='var(--ok)';m.textContent='পাসওয়ার্ড বদলানো হয়েছে।';['#op','#np','#np2'].forEach(i=>$(i).value='')}
     else m.textContent=x.data.error||'বদলানো যায়নি।'};
+  if(admin)mountBackup();
 }
 /* ---------- চার্ট (বাইরের কোনো লাইব্রেরি ছাড়া, SVG) ---------- */
 const bn=n=>String(n).replace(/\d/g,d=>'০১২৩৪৫৬৭৮৯'[d]);
@@ -196,20 +222,30 @@ function pHome(){
   const tot=quizzes.length,qs=quizzes.reduce((a,q)=>a+q.questions.length,0);
   $('#app').innerHTML=`<section class="hero"><h1>স্বাগতম, ${esc(session.name||session.u)} 👋</h1><p>${esc(S.tagline)} — ${esc(S.slogan)}</p>
   <div class="chips"><span class="chip">📚 ${tot}টি কুইজ</span><span class="chip">❓ ${qs}টি প্রশ্ন</span><span class="chip">৩টি বিষয়</span></div></section>
-  <div class="sec">বিষয় বেছে নিন</div><div class="grid">`+Object.keys(SUBJ).map(k=>{const n=quizzes.filter(q=>q.subject===k).length;
-   return `<a class="card subj ${k}" href="#/s/${k}"><div class="badge">${ICON[k]}</div><b>${SUBJ[k]}</b><div class="mute">${n}টি কুইজ</div><span class="go">শুরু করুন →</span></a>`}).join('')+`</div>`;
+  <div class="sec">বিষয় বেছে নিন</div><div class="grid">`+Object.keys(SUBJ).map(k=>{const n=quizzes.filter(q=>q.subject===k).length,m=resources.filter(r=>r.subject===k).length;
+   return `<a class="card subj ${k}" href="#/s/${k}"><div class="badge">${ICON[k]}</div><b>${SUBJ[k]}</b><div class="mute">${bn(n)}টি কুইজ · ${bn(m)}টি পিডিএফ</div><span class="go">শুরু করুন →</span></a>`}).join('')+`</div>`;
 }
-function pSubject(k){
-  if(!SUBJ[k])return pHome();
-  const list=quizzes.filter(q=>q.subject===k);
-  $('#app').innerHTML=`<div class="head ${k}"><div class="hl"><div class="badge sm">${ICON[k]}</div><div><h1>${SUBJ[k]}</h1><span class="mute">${list.length}টি কুইজ</span></div></div>
-  ${isAdmin()?`<a class="btn pri" href="#/new/${k}">+ নতুন কুইজ</a>`:''}</div>
-  <div class="list ${k}">`+(list.length?list.map((q,n)=>`<div class="card item"><div class="ti"><span class="no">${n+1}</span><div><b>${esc(q.title)}</b><div class="mute">${q.questions.length}টি প্রশ্ন</div></div></div>
+function quizList(k,list){
+  return `<div class="list ${k}">`+(list.length?list.map((q,n)=>`<div class="card item"><div class="ti"><span class="no">${bn(n+1)}</span><div><b>${esc(q.title)}</b><div class="mute">${bn(q.questions.length)}টি প্রশ্ন</div></div></div>
    <div class="row">${isAdmin()?'':`<a class="btn pri" href="#/quiz/${q.id}">কুইজ দিন</a>`}
    ${isAdmin()?`<a class="btn" href="#/edit/${q.id}">এডিট</a><button class="btn del" data-d="${q.id}">ডিলিট</button>`:''}</div></div>`).join(''):
-   `<div class="card mute">এখনো কোনো কুইজ নেই।${isAdmin()?' উপরে “নতুন কুইজ” চাপুন।':''}</div>`)+`</div>`+matSection(k);
-  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{
-    if(confirm('এই কুইজ ডিলিট করবেন?')){await api('DELETE','/api/quizzes/'+b.dataset.d);render()}});
+   `<div class="card mute">এখনো কোনো কুইজ নেই।${isAdmin()?' উপরে “নতুন কুইজ” চাপুন।':''}</div>`)+`</div>`;
+}
+function pSubject(k,tab){ // কুইজ ও পিডিএফ আলাদা ট্যাবে
+  if(!SUBJ[k])return pHome();
+  const pdf=tab==='pdf';
+  const list=quizzes.filter(q=>q.subject===k),mats=resources.filter(r=>r.subject===k);
+  $('#app').innerHTML=`<div class="head ${k}"><div class="hl"><div class="badge sm">${ICON[k]}</div><div><h1>${SUBJ[k]}</h1><span class="mute">${bn(list.length)}টি কুইজ · ${bn(mats.length)}টি পিডিএফ</span></div></div>
+   ${isAdmin()&&!pdf?`<a class="btn pri" href="#/new/${k}">+ নতুন কুইজ</a>`:''}</div>
+  <div class="tabs ${k}" role="tablist">
+   <a role="tab" aria-selected="${!pdf}" class="tab ${pdf?'':'on'}" href="#/s/${k}">কুইজ <span class="cnt">${bn(list.length)}</span></a>
+   <a role="tab" aria-selected="${pdf}" class="tab ${pdf?'on':''}" href="#/s/${k}/pdf">পিডিএফ <span class="cnt">${bn(mats.length)}</span></a></div>`+
+  (pdf?matSection(k):quizList(k,list));
+  if(!pdf){
+    document.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{
+      if(confirm('এই কুইজ ডিলিট করবেন?')){await api('DELETE','/api/quizzes/'+b.dataset.d);render()}});
+    return;
+  }
   if(!isAdmin())return;
   let editId=null;
   $('#rs').onclick=async()=>{const body={subject:k,title:$('#rt').value,url:$('#ru').value};
@@ -218,7 +254,7 @@ function pSubject(k){
   document.querySelectorAll('[data-re]').forEach(b=>b.onclick=()=>{const r=resources.find(x=>x.id===b.dataset.re);if(!r)return;editId=r.id;
     $('#rt').value=r.title;$('#ru').value=r.url;$('#rft').textContent='পিডিএফ এডিট করুন';$('#rc').hidden=false;$('#rt').focus()});
   $('#rc').onclick=()=>render();
-  document.querySelectorAll('[data-rd]').forEach(b=>b.onclick=async()=>{if(confirm('এই পিডিএফ লিংক ডিলিট করবেন?')){await api('DELETE','/api/resources/'+b.dataset.rd);render()}});
+  document.querySelectorAll('[data-rd]').forEach(b=>b.onclick=async()=>{const t=(resources.find(x=>x.id===b.dataset.rd)||{}).title||'';if(confirm('“'+t+'” — এই পিডিএফ লিংক মুছে ফেলবেন? এটা আর ফেরানো যাবে না।')){await api('DELETE','/api/resources/'+b.dataset.rd);render()}});
 }
 const hostOf=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return ''}};
 function embedInfo(url){ // Google Drive লিংক হলে ভেতরে দেখানোর উপযোগী /preview লিংকে বদলানো হয়
@@ -232,7 +268,7 @@ function pReader(id){ // পিডিএফ অ্যাপের ভেতর�
   const e=embedInfo(r.url),mobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   let mode=(!e.drive&&mobile)?'alt':'primary';
   $('#app').innerHTML=`<div class="head ${r.subject}"><div class="hl"><div class="badge sm">PDF</div><div><h1 style="font-size:1.35rem">${esc(r.title)}</h1><span class="mute">${SUBJ[r.subject]||''}</span></div></div>
-   <div class="row"><a class="btn" href="#/s/${r.subject}">← ফিরে যান</a>${e.drive?'':'<button class="btn" id="vw">ভিউয়ার বদলান</button>'}
+   <div class="row"><a class="btn" href="#/s/${r.subject}/pdf">← ফিরে যান</a>${e.drive?'':'<button class="btn" id="vw">ভিউয়ার বদলান</button>'}
    <a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">নতুন ট্যাবে খুলুন ↗</a></div></div>
    <div class="pdfbox"><iframe id="pf" title="${esc(r.title)}" src="${esc(mode==='alt'?e.alt:e.primary)}" referrerpolicy="no-referrer" allow="fullscreen"></iframe></div>
    <p class="mute" style="font-size:.88rem;margin-top:10px">পিডিএফ না দেখালে ${e.drive?'':'“ভিউয়ার বদলান” বা '}“নতুন ট্যাবে খুলুন” চাপুন।</p>`;
@@ -240,7 +276,7 @@ function pReader(id){ // পিডিএফ অ্যাপের ভেতর�
 }
 function matSection(k){ // বিষয়ের পিডিএফ / স্টাডি ম্যাটেরিয়াল তালিকা
   const list=resources.filter(r=>r.subject===k&&/^https?:\/\//i.test(r.url));
-  return `<div class="sec">পিডিএফ / স্টাডি ম্যাটেরিয়াল</div><div class="list ${k}" style="margin-top:12px">`+
+  return `<div class="list ${k}">`+
    (list.length?list.map(r=>`<div class="card item"><div class="ti"><span class="no pdf">PDF</span><div><b>${esc(r.title)}</b><div class="mute" style="font-size:.85rem;word-break:break-all">${esc(hostOf(r.url))}</div></div></div>
     <div class="row"><a class="btn pri" href="#/pdf/${r.id}">পড়ুন</a><a class="btn" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" title="নতুন ট্যাবে খুলুন" aria-label="নতুন ট্যাবে খুলুন">↗</a>
     ${isAdmin()?`<button class="btn" data-re="${r.id}">এডিট</button><button class="btn del" data-rd="${r.id}">ডিলিট</button>`:''}</div></div>`).join(''):

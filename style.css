@@ -6,19 +6,17 @@
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{margin:0;font-family:'Hind Siliguri',system-ui,sans-serif;color:var(--ink);line-height:1.65;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;
  background:
-  radial-gradient(900px 520px at 92% -8%,rgba(99,102,241,.20),transparent 62%),
-  radial-gradient(800px 520px at -6% 8%,rgba(20,184,166,.20),transparent 62%),
-  radial-gradient(900px 600px at 55% 108%,rgba(245,184,61,.16),transparent 62%),var(--bg)}
+  white;}
 body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
- background-image:radial-gradient(color-mix(in srgb,var(--ink) 12%,transparent) 1px,transparent 1.3px);background-size:24px 24px;
+ background:white;
  -webkit-mask-image:linear-gradient(to bottom,#000,transparent 75%);mask-image:linear-gradient(to bottom,#000,transparent 75%)}
-main{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:clamp(18px,3vw,36px) clamp(14px,3vw,24px) 48px}
+main{flex:1;width:100%;margin:0 auto;padding:clamp(18px,3vw,36px) clamp(14px,3vw,24px) 48px}
 a{color:inherit}
 /* ---------- navbar ---------- */
-header{position:sticky;top:0;z-index:30;color:#fff;background:linear-gradient(100deg,var(--brand),var(--brand2));box-shadow:0 6px 24px rgba(0,0,0,.2);border-bottom:1px solid rgba(255,255,255,.08)}
-.bar{max-width:1100px;margin:auto;display:flex;align-items:center;gap:12px;padding:10px clamp(14px,3vw,24px);min-height:var(--hh);position:relative}
+header{position:sticky;top:0;z-index:30;color:#fff;background:linear-gradient(100deg,navy);box-shadow:0 6px 24px rgba(0,0,0,.2);border-bottom:1px solid rgba(255,255,255,.08)}
+.bar{margin:auto;display:flex;align-items:center;gap:12px;padding:10px clamp(14px,3vw,24px);min-height:var(--hh);position:relative}
 .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.08rem;color:#fff;text-decoration:none;white-space:nowrap}
-.mark{flex:none;width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#ff8a4c);color:#3a2300;display:grid;place-items:center;font-weight:700;font-size:1.2rem;box-shadow:0 4px 14px rgba(245,184,61,.45)}
+.mark{flex:none;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#ff8a4c);color:#3a2300;display:grid;place-items:center;font-weight:700;font-size:1.2rem;box-shadow:0 4px 14px rgba(245,184,61,.45)}
 .mark.big{width:58px;height:58px;font-size:1.8rem;border-radius:17px;margin:0 auto 10px}
 .links{display:flex;align-items:center;gap:4px;margin-left:auto}
 .links .sp{width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 8px}
@@ -46,14 +44,14 @@ header.open .burger i:nth-child(3){top:21px;transform:rotate(-45deg)}
  a.nav.out{justify-content:center;margin-top:4px}
 }
 /* ---------- footer ---------- */
-footer{margin-top:auto;color:#cfe3e8;background:linear-gradient(100deg,var(--brand),var(--brand2));border-top:3px solid var(--accent)}
-.fwrap{max-width:1100px;margin:auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:28px;padding:34px clamp(14px,3vw,24px) 20px}
+footer{margin-top:auto;color:#cfe3e8;background:linear-gradient(100deg,navy);border-top:3px solid var(--accent)}
+.fwrap{margin:auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:28px;padding:34px clamp(14px,3vw,24px) 20px}
 .fcol h3{margin:0 0 10px;font-size:1rem;color:#fff}
 .fcol a{display:block;color:#cfe3e8;text-decoration:none;padding:4px 0;font-size:.95rem}
 .fcol a:hover{color:var(--accent)}
 .fcol.fbrand p{margin:12px 0 0;max-width:380px;font-size:.93rem;color:#b5cdd3}
 .fcol.fbrand .logo{display:inline-flex;padding:0}
-.fbar{max-width:1100px;margin:auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px clamp(14px,3vw,24px) 18px;border-top:1px solid rgba(255,255,255,.12);font-size:.85rem;color:#a9c3ca}
+.fbar{margin:auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:14px clamp(14px,3vw,24px) 18px;border-top:1px solid rgba(255,255,255,.12);font-size:.85rem;color:#a9c3ca}
 .totop{font:inherit;font-size:.85rem;cursor:pointer;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:6px 14px;border-radius:99px}
 .totop:hover{background:var(--accent);color:#3a2300;border-color:var(--accent)}
 /* ---------- type ---------- */
@@ -67,7 +65,7 @@ h2{font-size:1.2rem;margin:0 0 12px}
 .hero h1{color:#fff;font-size:clamp(1.5rem,1.1rem + 2vw,2.2rem)}
 .hero p{margin:8px 0 0;color:#d6e6ff;max-width:540px;position:relative}
 .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;position:relative;z-index:1}
-.chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.24);padding:6px 14px;border-radius:99px;font-size:.92rem}
+.chip{background:crimson;border:1px solid rgba(255,255,255,.24);padding:6px 14px;border-radius:99px;font-size:.92rem}
 .sec{margin:30px 0 4px;font-size:1.15rem;font-weight:600}
 /* ---------- cards ---------- */
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:clamp(14px,2vw,22px);margin-top:14px}
@@ -190,3 +188,11 @@ svg.ch.donut{max-width:170px;flex:none}svg.ch.donut .big{fill:var(--ink);font-si
 .pdfbox{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:var(--shadow)}
 .pdfbox iframe{display:block;width:100%;height:calc(100vh - 230px);height:calc(100dvh - 230px);min-height:480px;border:0}
 @media(max-width:640px){.pdfbox{margin:0 -6px;border-radius:12px}.pdfbox iframe{height:calc(100dvh - 270px);min-height:420px}}
+
+/* ---------- ট্যাব: কুইজ | পিডিএফ ---------- */
+.tabs{display:flex;gap:6px;padding:5px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-bottom:18px;width:100%;max-width:440px}
+.tab{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;text-decoration:none;padding:10px 12px;border-radius:10px;font-weight:600;color:var(--mute);transition:background .15s,color .15s}
+.tab:hover{color:var(--ink)}
+.tab.on{color:#fff;background:linear-gradient(135deg,var(--c),var(--c2));box-shadow:0 6px 14px color-mix(in srgb,var(--c) 35%,transparent)}
+.tab:focus-visible{outline:3px solid color-mix(in srgb,var(--c) 55%,transparent);outline-offset:2px}
+.cnt{font-size:.78rem;min-width:22px;padding:0 7px;border-radius:99px;background:color-mix(in srgb,currentColor 18%,transparent);line-height:1.6}
