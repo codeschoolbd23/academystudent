@@ -14,7 +14,9 @@ const API=(window.API_BASE||'').replace(/\/$/,'');
 let quizzes=[],session=null,token=localStorage.getItem('sp_token')||'';
 async function api(method,url,body){
   try{const r=await fetch(API+url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});
-    const d=await r.json().catch(()=>({}));return{ok:r.ok,status:r.status,data:d}}
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok&&!d.error&&(r.status===404||r.status===405))d.error='ব্যাকএন্ড সার্ভার পাওয়া যাচ্ছে না। সাইটটি এমন হোস্টে আছে যেখানে server.js চলে না (যেমন GitHub Pages)। Node.js হোস্টে দিন বা config.js-এ ব্যাকএন্ডের ঠিকানা (API_BASE) দিন।';
+    return{ok:r.ok,status:r.status,data:d}}
   catch(e){return{ok:false,status:0,data:{error:'সার্ভারের সাথে যোগাযোগ হচ্ছে না।'}}}
 }
 const isAdmin=()=>session&&session.role==='admin';
