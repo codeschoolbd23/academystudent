@@ -4,14 +4,14 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // সাইটের নাম ও রং config.js (window.SITE) থেকে আসে
 const S=Object.assign({name:'একাডেমিক-সমাধান',fullName:'একাডেমিক-সমাধান অনলাইন পোর্টাল',tagline:'পদার্থবিজ্ঞান, রসায়ন ও গণিতের কুইজ দিয়ে নিজেকে যাচাই করুন',slogan:'তুমিই পারবে!',logo:'',colors:{}},window.SITE||{});
-S.logo = S.logo || Array.from(S.name)[0];
+S.logo=S.logo||Array.from(S.name)[0]||'স';
 document.title=S.fullName;
 Object.entries(S.colors||{}).forEach(([k,v])=>{if(v)document.documentElement.style.setProperty('--'+k,v)});
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}};
 const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const API=(window.API_BASE||'').replace(/\/$/,'');
-let quizzes=[],session=null,token=localStorage.getItem('sp_token')||'';
+let resources=[],quizzes=[],session=null,token=localStorage.getItem('sp_token')||'';
 async function api(method,url,body){
   try{const r=await fetch(API+url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});
     const d=await r.json().catch(()=>({}));
@@ -52,7 +52,8 @@ async function render(){
   if(page==='logout'){await api('POST','/api/logout');clearSession();location.hash='#/login';return}
   if(token&&!session){const r=await api('GET','/api/me');if(r.ok)session={u:r.data.u,role:r.data.role,name:r.data.name||''};else clearSession()}
   if(!session&&page!=='login'){location.hash='#/login';return}
-  if(session){const r=await api('GET','/api/quizzes');if(r.status===401){clearSession();location.hash='#/login';return}quizzes=r.data||[]}
+  if(session){const r=await api('GET','/api/quizzes');if(r.status===401){clearSession();location.hash='#/login';return}quizzes=r.data||[]
+    const rs=await api('GET','/api/resources');resources=rs.ok?rs.data:[]}
   nav();
   const pages={result:pReview,profile:pProfile,results:pResults,login:pLogin,home:pHome,s:pSubject,quiz:pQuiz,edit:pEdit,new:pNew};
   (pages[page]||pHome)(arg);
@@ -206,9 +207,31 @@ function pSubject(k){
   <div class="list ${k}">`+(list.length?list.map((q,n)=>`<div class="card item"><div class="ti"><span class="no">${n+1}</span><div><b>${esc(q.title)}</b><div class="mute">${q.questions.length}টি প্রশ্ন</div></div></div>
    <div class="row">${isAdmin()?'':`<a class="btn pri" href="#/quiz/${q.id}">কুইজ দিন</a>`}
    ${isAdmin()?`<a class="btn" href="#/edit/${q.id}">এডিট</a><button class="btn del" data-d="${q.id}">ডিলিট</button>`:''}</div></div>`).join(''):
-   `<div class="card mute">এখনো কোনো কুইজ নেই।${isAdmin()?' উপরে “নতুন কুইজ” চাপুন।':''}</div>`)+`</div>`;
+   `<div class="card mute">এখনো কোনো কুইজ নেই।${isAdmin()?' উপরে “নতুন কুইজ” চাপুন।':''}</div>`)+`</div>`+matSection(k);
   document.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{
     if(confirm('এই কুইজ ডিলিট করবেন?')){await api('DELETE','/api/quizzes/'+b.dataset.d);render()}});
+  if(!isAdmin())return;
+  let editId=null;
+  $('#rs').onclick=async()=>{const body={subject:k,title:$('#rt').value,url:$('#ru').value};
+    const r=editId?await api('PUT','/api/resources/'+editId,body):await api('POST','/api/resources',body);
+    if(!r.ok){$('#rm').textContent=r.data.error||'সেভ হয়নি।';return}render()};
+  document.querySelectorAll('[data-re]').forEach(b=>b.onclick=()=>{const r=resources.find(x=>x.id===b.dataset.re);if(!r)return;editId=r.id;
+    $('#rt').value=r.title;$('#ru').value=r.url;$('#rft').textContent='পিডিএফ এডিট করুন';$('#rc').hidden=false;$('#rt').focus()});
+  $('#rc').onclick=()=>render();
+  document.querySelectorAll('[data-rd]').forEach(b=>b.onclick=async()=>{if(confirm('এই পিডিএফ লিংক ডিলিট করবেন?')){await api('DELETE','/api/resources/'+b.dataset.rd);render()}});
+}
+const hostOf=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return ''}};
+function matSection(k){ // বিষয়ের পিডিএফ / স্টাডি ম্যাটেরিয়াল তালিকা
+  const list=resources.filter(r=>r.subject===k&&/^https?:\/\//i.test(r.url));
+  return `<div class="sec">পিডিএফ / স্টাডি ম্যাটেরিয়াল</div><div class="list ${k}" style="margin-top:12px">`+
+   (list.length?list.map(r=>`<div class="card item"><div class="ti"><span class="no pdf">PDF</span><div><b>${esc(r.title)}</b><div class="mute" style="font-size:.85rem;word-break:break-all">${esc(hostOf(r.url))}</div></div></div>
+    <div class="row"><a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">খুলুন</a>
+    ${isAdmin()?`<button class="btn" data-re="${r.id}">এডিট</button><button class="btn del" data-rd="${r.id}">ডিলিট</button>`:''}</div></div>`).join(''):
+    `<div class="card mute">এখনো কোনো পিডিএফ যোগ করা হয়নি।</div>`)+`</div>`+
+   (isAdmin()?`<div class="card ${k}" style="margin-top:14px"><h2 id="rft">নতুন পিডিএফ লিংক যোগ করুন</h2>
+    <label for="rt">শিরোনাম</label><input id="rt" maxlength="120" placeholder="যেমন: নিউটনের সূত্র — নোট">
+    <label for="ru">পিডিএফ লিংক (https://...)</label><input id="ru" inputmode="url" placeholder="https://drive.google.com/...">
+    <p class="msg" id="rm" role="alert"></p><div class="row"><button class="btn pri" id="rs">সেভ করুন</button><button class="btn" id="rc" hidden>বাতিল</button></div></div>`:'');
 }
 function pQuiz(id){
   const q=quizzes.find(x=>x.id===id);if(!q)return pHome();

@@ -6,6 +6,7 @@ sql.exec(`PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS users(u TEXT PRIMARY KEY,salt TEXT NOT NULL,hash TEXT NOT NULL,role TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS quizzes(id TEXT PRIMARY KEY,subject TEXT NOT NULL,title TEXT NOT NULL,questions TEXT NOT NULL,created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS attempts(id INTEGER PRIMARY KEY AUTOINCREMENT,u TEXT NOT NULL,quiz_id TEXT NOT NULL,title TEXT NOT NULL,subject TEXT NOT NULL,score INTEGER NOT NULL,total INTEGER NOT NULL,created INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS resources(id TEXT PRIMARY KEY,subject TEXT NOT NULL,title TEXT NOT NULL,url TEXT NOT NULL,created INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,u TEXT NOT NULL,role TEXT NOT NULL,created INTEGER NOT NULL);`);
 {const cols=sql.prepare('PRAGMA table_info(users)').all().map(c=>c.name);
  if(!cols.includes('name'))sql.exec("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''");
@@ -47,6 +48,11 @@ function clean(q){ // কুইজ যাচাই
   const qs=q.questions.map(x=>({q:String(x.q||'').trim(),opts:(x.opts||[]).slice(0,4).map(o=>String(o).trim()),a:Number(x.a)}));
   if(qs.some(x=>!x.q||x.opts.length!==4||x.opts.some(o=>!o)||!(x.a>=0&&x.a<4)))return null;
   return{subject:q.subject,title:q.title.trim(),questions:qs};
+}
+function cleanRes(x){ // পিডিএফ লিংক যাচাই (শুধু http/https)
+  const title=String(x&&x.title||'').trim().slice(0,120),url=String(x&&x.url||'').trim().slice(0,1000);
+  if(!SUBJ.includes(x&&x.subject)||!title||!/^https?:\/\/[^\s]+$/i.test(url))return null;
+  return{subject:x.subject,title,url};
 }
 const hideAns=q=>({...q,questions:q.questions.map(({a,...r})=>r)});
 const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon','.png':'image/png'};
@@ -90,6 +96,7 @@ async function api(req,res,url){
     q$('UPDATE users SET salt=?,hash=? WHERE u=?').run(salt,hash(np,salt),me.u);
     q$('DELETE FROM sessions WHERE u=? AND token<>?').run(me.u,tok); // অন্য ডিভাইসের সেশন বন্ধ
     return send(res,200,{ok:1})}
+  if(p==='/api/resources'&&m==='GET')return send(res,200,q$('SELECT id,subject,title,url FROM resources ORDER BY created').all());
   if(p==='/api/quizzes'&&m==='GET')return send(res,200,me.role==='admin'?allQuizzes():allQuizzes().map(hideAns));
   let r=p.match(/^\/api\/quizzes\/([\w-]+)\/submit$/);
   if(r&&m==='POST'){const q=getQuiz(r[1]);if(!q)return send(res,404,{error:'কুইজ পাওয়া যায়নি।'});
@@ -102,6 +109,13 @@ async function api(req,res,url){
       :q$('SELECT id,u,quiz_id,title,subject,score,total,created FROM attempts WHERE u=? ORDER BY created DESC LIMIT 1000').all(me.u);
     return send(res,200,rows)}
   if(me.role!=='admin'&&(m!=='GET'))return send(res,403,{error:'শুধু অ্যাডমিন এটা করতে পারবেন।'});
+  if(p==='/api/resources'&&m==='POST'){const x=cleanRes(b);if(!x)return send(res,400,{error:'শিরোনাম দিন এবং https:// দিয়ে শুরু হওয়া পূর্ণ লিংক দিন।'});
+    const n={id:uid(),...x};q$('INSERT INTO resources VALUES(?,?,?,?,?)').run(n.id,n.subject,n.title,n.url,Date.now());return send(res,201,n)}
+  rr=p.match(/^\/api\/resources\/([\w-]+)$/);
+  if(rr&&m==='PUT'){const x=cleanRes(b);if(!x)return send(res,400,{error:'শিরোনাম দিন এবং https:// দিয়ে শুরু হওয়া পূর্ণ লিংক দিন।'});
+    const k=q$('UPDATE resources SET subject=?,title=?,url=? WHERE id=?').run(x.subject,x.title,x.url,rr[1]);
+    return k.changes?send(res,200,{id:rr[1],...x}):send(res,404,{error:'পাওয়া যায়নি।'})}
+  if(rr&&m==='DELETE'){q$('DELETE FROM resources WHERE id=?').run(rr[1]);return send(res,200,{ok:1})}
   if(p==='/api/quizzes'&&m==='POST'){const q=clean(b);if(!q)return send(res,400,{error:'কুইজের তথ্য সম্পূর্ণ নয়।'});
     const n={id:uid(),...q};addQuiz(n);return send(res,201,n)}
   r=p.match(/^\/api\/quizzes\/([\w-]+)$/);
